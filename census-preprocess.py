@@ -25,8 +25,14 @@ for r in records:
 new_df = pd.DataFrame.from_dict(records)
 new_df = new_df.dropna(subset=["precinct_2020"])
 precincts_group = new_df.groupby("precinct_2020")
-precincts_demo = precincts_group[["Total_Population", "Black", "Hispanics", "NH_Asian", "NH_White", "Others"]].sum().reset_index()
-precincts_demo.to_csv("precincts_demos.csv")
+demo = precincts_group[["Total_Population", "Black", "Hispanics", "NH_Asian", "NH_White", "Others"]].sum().reset_index()
+demo["Black_Percentage"] = 100*demo["Black"]/demo['Total_Population']
+demo["Hispanics_Percentage"] = 100*demo["Hispanics"]/demo['Total_Population']
+demo["NH_Asian_Percentage"] = 100*demo["NH_Asian"]/demo['Total_Population']
+demo["NH_White_Percentage"] = 100*demo["NH_White"]/demo['Total_Population']
+demo["Others_Percentage"] = 100*demo["Others"]/demo['Total_Population']
+
+demo.to_csv("precincts_demos.csv", index=False)
 
 
 
