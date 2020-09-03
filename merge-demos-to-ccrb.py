@@ -5,6 +5,8 @@ precincts = set(filter(lambda x: re.match("(\d+)\sPCT", x), df["Command"]))
 pdf = df[df["Command"].isin(precincts)].copy()
 pdf["Precinct"] = pdf["Command"].apply(lambda c: re.search("(\d+)", c).group(1))
 census = pd.read_csv("precincts_demos.csv")
+census00 = pd.read_csv('./nyc2000/precinct20_demos00.csv')
+census = pd.merge(census, census00, how='left', on='precinct_2020')
 
 census["Precinct_Str"] = census["precinct_2020"].apply(lambda p: str(int(p)).zfill(3))
 merged = pdf.join(census.set_index("Precinct_Str"), on="Precinct")

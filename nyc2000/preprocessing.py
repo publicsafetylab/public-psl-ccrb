@@ -63,5 +63,18 @@ uniq_prec = bp.groupby('geoid00').agg({'precinct_2020': 'nunique'}).rename(colum
 bp = pd.merge(bp, uniq_prec, how='left', on='geoid00')
 bp.to_csv('blocks00_precincts20.csv', index=False)
 # %%
-bp[bp['uniq_prec'] == 1].groupby('precinct_2020').sum().drop(columns=['uniq_prec']).to_csv('precinct20_demos00.csv')
+bp = bp[bp['uniq_prec'] == 1].groupby('precinct_2020').sum().drop(columns=['uniq_prec'])
+bp = bp.rename(columns=lambda x: x.strip())
+bp = bp.rename(columns={
+  'White': 'NH_White_00',
+  'Black/ African American': 'Black_00',
+  'Asian': 'NH_Asian_00',
+  'Hispanic Origin (of any race)': 'Hispanics_00',
+  'Total Population': 'Total_Population_00'
+})
+bp['Others_00'] = bp[['American Indian and Alaska Native', 'Native Hawaiian and Other Pacific Islander', 'Some Other Race']].sum(axis=1)
+bp = bp[['Total_Population_00', 'Black_00', 'Hispanics_00', 'NH_Asian_00', 'NH_White_00', 'Others_00']]
+for col in ['Black_00', 'Hispanics_00', 'NH_Asian_00', 'NH_White_00', 'Others_00']:
+    bp[col+'_Percentage'] = bp[col] / bp['Total_Population_00']
+bp.to_csv('precinct20_demos00.csv')
 # %%
