@@ -1,4 +1,4 @@
-# <a href="https://publicsafetylab.org/jail-data-initiative"><b>Jail Data Initiative</b></a>: NYC Civilian Complaint Review Board Data Analysis
+# <a href="https://publicsafetylab.org/jail-data-initiative"><b>Jail Data Initiative</b></a>: Analysis of Data from the New York City Civilian Complaint Review Board (CCRB)
 ### NYU <a href="https://publicsafetylab.org/"><b>Public Safety Lab</b></a>
 
 
