@@ -43,9 +43,21 @@ merged = pd.merge(merged, table, how='left', left_on=['Year', 'Precinct'], right
 
 
 ##  ingest number of officers and merge
-off = pd.read_csv(StringIO(S3.Bucket(BUCKET).Object("officers-raw/jacobdkaplan.com_police_count_New York City Police Department_New York.csv").get()["Body"].read().decode("utf-8")))
+off = pd.read_csv(StringIO(S3.Bucket(BUCKET).Object("kaplan-raw/police_count.csv").get()["Body"].read().decode("utf-8")))
 off = off[["year","population","total_employees_officers","total_employees_total"]].rename(columns={"year":"Year","population":"YR_CITY_POP","total_employees_officers":"YR_NUM_OFFICERS","total_employees_total":"YR_NUM_NYPD_EMPLOYEES"})
 ccrb = pd.merge(merged, off, how="left", on="Year")
+
+
+##  ingest arrest count and merge
+arr = pd.read_csv(StringIO(S3.Bucket(BUCKET).Object("kaplan-raw/arrests_count.csv").get()["Body"].read().decode("utf-8")))
+arr = arr[["year","all_arrests_total_tot_arrests"]].rename(columns={"year":"Year","all_arrests_total_tot_arrests":"YR_ARRESTS"})
+ccrb = pd.merge(ccrb, arr, how="left", on="Year")
+
+
+##  ingest offense count and merge
+crm = pd.read_csv(StringIO(S3.Bucket(BUCKET).Object("kaplan-raw/offenses_count.csv").get()["Body"].read().decode("utf-8")))
+crm = arr[["year","actual_all_crimes","tot_clr_all_crimes"]].rename(columns={"year":"Year","actual_all_crimes":"YR_OFFENSES","tot_clr_all_crimes":"YR_OFFENSES_CLEARED"})
+ccrb = pd.merge(ccrb, crm, how="left", on="Year")
 
 
 ##  collect large stops csvs from s3 and merge
