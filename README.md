@@ -1,4 +1,4 @@
-# <a href="https://publicsafetylab.org/jail-data-initiative"><b>Jail Data Initiative</b></a>: Analysis of NYC Civilian Complaint Review Board Data
+# <a href="https://publicsafetylab.org/jail-data-initiative"><b>Jail Data Initiative</b></a>: NYC Civilian Complaint Review Board Data Analysis
 ### NYU <a href="https://publicsafetylab.org/"><b>Public Safety Lab</b></a>
 
 
