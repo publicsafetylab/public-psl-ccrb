@@ -1,8 +1,4 @@
-# JDI-CCRB
-
-### <b><i>Note: this is a public repository for data collected as part of the Jail Data Initiative</i></b>
-
-# <a href="https://publicsafetylab.org/jail-data-initiative"><b>Jail Data Initiative</b></a>(JDI)
+# <a href="https://publicsafetylab.org/jail-data-initiative"><b>Jail Data Initiative</b></a> Analysis of NYC Civilian Complaint Review Board Data
 ### NYU <a href="https://publicsafetylab.org/"><b>Public Safety Lab</b></a>
 
 The problem of overincarceration has received considerable attention of late. The focus of this attention, however, has largely been on state and federal prison systems. Often overlooked are local jails. In any given year, county jails will see approximately 11 million new admissions, often because defendants lack the funds to post bail, or even because they lack the funds to pay their fines. Yet we know little about county jail practices, including which counties are systematically jailing defendants pre-trial and/or post-fine, and about the consequences of these practices. 
