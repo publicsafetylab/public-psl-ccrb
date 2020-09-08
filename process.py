@@ -39,6 +39,7 @@ for chunk in pd.read_csv("s3://jdi-ccrb/crime-complaints-raw/NYPD_Complaint_Data
     chunk['YEAR'] = pd.to_datetime(chunk['CMPLNT_FR_DT'], errors="coerce").dt.year
     complaints = pd.concat([complaints, chunk[chunk['YEAR'] >= 1980]])
     i += 1
+    print(complaints.shape)
 otypes = pd.read_csv(
     StringIO(S3.Bucket(BUCKET).Object("crime-complaints-raw/offensetypes.csv").get()["Body"].read().decode("utf-8")))
 cdf = pd.merge(complaints, otypes[['OFNS_DESC', 'OFNS_TYPE']], how='left', on='OFNS_DESC')
@@ -59,17 +60,15 @@ ccrb = pd.merge(merged, off, how="left", on="Year")
 
 ##  ingest arrest count and merge
 print("Reading in number of arrests data")
-arr = pd.read_csv(
-    StringIO(S3.Bucket(BUCKET).Object("kaplan-raw/arrests_count.csv").get()["Body"].read().decode("utf-8")))
+arr = pd.read_csv("s3://jdi-ccrb/kaplan-raw/arrests_count.csv")
 arr = arr[["year", "all_arrests_total_tot_arrests"]].rename(
     columns={"year": "Year", "all_arrests_total_tot_arrests": "YR_ARRESTS"})
 ccrb = pd.merge(ccrb, arr, how="left", on="Year")
 
 ##  ingest offense count and merge
 print("Reading in number of offenses data")
-crm = pd.read_csv(
-    StringIO(S3.Bucket(BUCKET).Object("kaplan-raw/offenses_count.csv").get()["Body"].read().decode("utf-8")))
-crm = arr[["year", "actual_all_crimes", "tot_clr_all_crimes"]].rename(
+crm = pd.read_csv("s3://jdi-ccrb/kaplan-raw/offenses_count.csv")
+crm = crm[["year", "actual_all_crimes", "tot_clr_all_crimes"]].rename(
     columns={"year": "Year", "actual_all_crimes": "YR_OFFENSES", "tot_clr_all_crimes": "YR_OFFENSES_CLEARED"})
 ccrb = pd.merge(ccrb, crm, how="left", on="Year")
 
