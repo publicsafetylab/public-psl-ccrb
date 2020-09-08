@@ -12,12 +12,14 @@ conn = S3.Bucket(BUCKET)
 
 
 ##  ingest raw csv and extract year
+print("Reading in raw CCRB data")
 ccrb_raw = pd.read_csv(StringIO(S3.Bucket(BUCKET).Object("complaints-raw/CCRB_database_raw.csv").get()["Body"].read().decode("utf-8")))
 ccrb_raw["Year"] = pd.to_datetime(ccrb_raw["Incident Date"]).dt.year.fillna("-1").astype(int)
 ccrb = ccrb_raw.copy()
 
 
 ##  ingest census data and merge
+print("Reading in census data")
 census2010 = pd.read_csv("raw/precincts_demos.csv")
 census2000 = pd.read_csv('raw/nyc2000/precinct20_demos00.csv')
 census = pd.merge(census2010, census2000, how='left', on='precinct_2020')
@@ -29,6 +31,7 @@ merged["Precinct"] = merged["Precinct"].astype(int)
 
 
 ##  ingest incidents data and merge
+print("Reading in crime complaints data")
 complaints = pd.read_csv(StringIO(S3.Bucket(BUCKET).Object("crime-complaints-raw/NYPD_Complaint_Data_Historic.csv").get()["Body"].read().decode("utf-8")), parse_dates=True)
 cdf = complaints.copy()
 cdf['YEAR'] = pd.to_datetime(cdf['CMPLNT_FR_DT'], errors="coerce").dt.year
@@ -43,24 +46,28 @@ merged = pd.merge(merged, table, how='left', left_on=['Year', 'Precinct'], right
 
 
 ##  ingest number of officers and merge
+print("Reading in number of officers data")
 off = pd.read_csv(StringIO(S3.Bucket(BUCKET).Object("kaplan-raw/police_count.csv").get()["Body"].read().decode("utf-8")))
 off = off[["year","population","total_employees_officers","total_employees_total"]].rename(columns={"year":"Year","population":"YR_CITY_POP","total_employees_officers":"YR_NUM_OFFICERS","total_employees_total":"YR_NUM_NYPD_EMPLOYEES"})
 ccrb = pd.merge(merged, off, how="left", on="Year")
 
 
 ##  ingest arrest count and merge
+print("Reading in number of arrests data")
 arr = pd.read_csv(StringIO(S3.Bucket(BUCKET).Object("kaplan-raw/arrests_count.csv").get()["Body"].read().decode("utf-8")))
 arr = arr[["year","all_arrests_total_tot_arrests"]].rename(columns={"year":"Year","all_arrests_total_tot_arrests":"YR_ARRESTS"})
 ccrb = pd.merge(ccrb, arr, how="left", on="Year")
 
 
 ##  ingest offense count and merge
+print("Reading in number of offenses data")
 crm = pd.read_csv(StringIO(S3.Bucket(BUCKET).Object("kaplan-raw/offenses_count.csv").get()["Body"].read().decode("utf-8")))
 crm = arr[["year","actual_all_crimes","tot_clr_all_crimes"]].rename(columns={"year":"Year","actual_all_crimes":"YR_OFFENSES","tot_clr_all_crimes":"YR_OFFENSES_CLEARED"})
 ccrb = pd.merge(ccrb, crm, how="left", on="Year")
 
 
 ##  collect large stops csvs from s3 and merge
+print("Reading in stops data")
 fns = [object_summary.key for object_summary in conn.objects.filter(Prefix=f"stops-raw")][1:]
 dfs = []
 
@@ -100,6 +107,7 @@ ccrb = pd.merge(ccrb, pct_cts_df, how="left", on=["Precinct","Year"])
 
 
 ##  check value counts from raw and processed
+print("Checking value counts")
 vals_df = pd.DataFrame(ccrb.groupby("Year").size()).reset_index().rename(columns={"index":"Year",0:"Count"})
 raw_vals_df = pd.DataFrame(ccrb_raw["Year"].value_counts()).reset_index().rename(columns={"index":"Year","Year":"Raw_Count"})
 both_vals_df = pd.merge(vals_df, raw_vals_df, on="Year")
