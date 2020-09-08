@@ -38,7 +38,7 @@ for chunk in pd.read_csv("s3://jdi-ccrb/crime-complaints-raw/NYPD_Complaint_Data
     print(f"Reading Complaints csv row {(i - 1) * chunk_rows + 1} - {i * chunk_rows}")
     chunk['YEAR'] = pd.to_datetime(chunk['CMPLNT_FR_DT'], errors="coerce").dt.year
     complaints = pd.concat([complaints, chunk[chunk['YEAR'] >= 1980]])
-
+    i += 1
 otypes = pd.read_csv(
     StringIO(S3.Bucket(BUCKET).Object("crime-complaints-raw/offensetypes.csv").get()["Body"].read().decode("utf-8")))
 cdf = pd.merge(complaints, otypes[['OFNS_DESC', 'OFNS_TYPE']], how='left', on='OFNS_DESC')
