@@ -8,7 +8,10 @@ This repository contains the files (outlined below) to process this data and mer
 <ul>
   <li><a href="https://github.com/publicsafetylab/JDI-CCRB/blob/master/preprocess_census.py">preprocess_census.py</a> processes raw U.S Census data from 2000 and 2010, with subprocesses and data stored in the <a href="https://github.com/publicsafetylab/JDI-CCRB/tree/master/raw">raw</a> directory</li>
   <li><a href="https://github.com/publicsafetylab/JDI-CCRB/blob/master/process_except_crime_complaints.py">process_except_crime_complaints.py</a> reads in the NYCLU CCRB misconduct allegations raw data, and merges: the preprocessed Census data; NYCLU data on NYPD stop-and-frisk incidents; and data from <a href="https://jacobdkaplan.com/">Jacob Kaplan</a> on annual numbers of NYPD officers, offenses and arrests</li>
+  <li><a href="https://github.com/publicsafetylab/JDI-CCRB/blob/master/process_crime_complaints.py">process_crime_complaints.py</a> reads in the tmp output of process_except_crime_complaints and merges with NYPD crime complaint data</li>
   </ul>
+  
+The final data is batched into 6 files in the <a href="https://github.com/publicsafetylab/JDI-CCRB/tree/master/data">data</a> directory (data_chunk_0 thru data_chunk_6).
 
 ## Contact Information
 
