@@ -4,12 +4,12 @@
 On August 20, 2020 the New York Civil Liberties Union (NYCLU) <a href="https://www.nyclu.org/en/press-releases/nyclu-makes-35-years-nypd-misconduct-data-available-public">announced</a> its public release of a <a href="https://github.com/new-york-civil-liberties-union/NYPD-Misconduct-Complaint-Database">dataset</a> of 300,000+ allegations of misconduct against NYPD officers filed by civilians to the CCRB. The dataset features civilian complaints and their component allegations, with incident dates ranging from August 7, 1978 to May 24, 2020 (one day prior to the killing of George Floyd). They include officer-identifying information, incident date, precinct, allegation and allegation type, CCRB and NYPD dispositions (with date of most recent modification), and penalty description.
 
 ## Repository Structure
-This repository contains the files (outlined below) to process this data and merge it with data from additional sources. Many of the raw and temporary files referenced are stored in a public S3 bucket (e.g., the complete output data is stored at <a href='https://jdi-ccrb.s3.amazonaws.com/out/data.csv'>https://jdi-ccrb.s3.amazonaws.com/out/data.csv</a>).
+Note: Many of the raw and temporary files referenced are stored in a public S3 bucket (e.g., the complete output data is stored at <a href='https://jdi-ccrb.s3.amazonaws.com/out/data.csv'>https://jdi-ccrb.s3.amazonaws.com/out/data.csv</a>).
+
+The <a href="">process.py</a> script reads in the raw NYCLU NYC CCRB data CSV, cleans as necessary, and merges the following additional data sources:
 <ul>
-  <li><a href="https://github.com/publicsafetylab/JDI-CCRB/blob/master/preprocess_census.py">preprocess_census.py</a> processes raw U.S Census data from 2000 and 2010, with subprocesses and data stored in the <a href="https://github.com/publicsafetylab/JDI-CCRB/tree/master/raw">raw</a> directory</li>
-  <li><a href="https://github.com/publicsafetylab/JDI-CCRB/blob/master/process_except_crime_complaints.py">process_except_crime_complaints.py</a> reads in the NYCLU CCRB misconduct allegations raw data, and merges: the preprocessed Census data; NYCLU data on NYPD stop-and-frisk incidents; and data from <a href="https://jacobdkaplan.com/">Jacob Kaplan</a> on annual numbers of NYPD officers, offenses and arrests</li>
-  <li><a href="https://github.com/publicsafetylab/JDI-CCRB/blob/master/process_crime_complaints.py">process_crime_complaints.py</a> reads in the tmp output of process_except_crime_complaints and merges with NYPD crime complaint data</li>
-  </ul>
+  <li>2010 U.S. Census data, mapped to 2020 NYPD precincts by <a href="https://johnkeefe.net/nyc-police-precinct-and-census-data">John Keefe</a></li>
+</ul>
   
 The final data is batched into 6 files in the <a href="https://github.com/publicsafetylab/JDI-CCRB/tree/master/data">data</a> directory (data_chunk_0 thru data_chunk_6).
 
