@@ -12,16 +12,16 @@ warnings.simplefilter(action="ignore", category=Warning)
 print("\n" + "*"*20 + "\n")
 
 # Connect to public AWS S3 bucket
-# Hosted by NYU's Public Safety Lab @ https://jdi-ccrb.s3.amazonaws.com/
+# Hosted by NYU's Public Safety Lab @ https://psl-ccrb.s3.amazonaws.com/
 S3 = boto3.resource("s3")
-BUCKET = "jdi-ccrb"
+BUCKET = "psl-ccrb"
 print(f"Connecting to NYU Public Safety Lab AWS S3 bucket {BUCKET}")
 conn = S3.Bucket(BUCKET)
 
 # Ingest raw NYCLU's NYC CCRB data CSV and extract Year and Month from Incident Date (fill missing -1)
 # Data provided by NYCLU @ https://github.com/new-york-civil-liberties-union/NYPD-Misconduct-Complaint-Database
 print("Reading CCRB raw data")
-ccrb = pd.read_csv("s3://jdi-ccrb/raw/nyclu-misconduct-complaints.csv")
+ccrb = pd.read_csv("s3://psl-ccrb/raw/nyclu-misconduct-complaints.csv")
 ccrb["Year"] = pd.to_datetime(ccrb["Incident Date"]).dt.year.fillna("-1").astype(int)
 ccrb["Month"] = pd.to_datetime(ccrb["Incident Date"]).dt.month.fillna("-1").astype(int)
 
@@ -34,7 +34,7 @@ ccrb["Precinct"] = np.where(ccrb["Precinct"].isin(precinct_map.values()), ccrb["
 # Ingest 2010 US Census data mapped to 2020 NYPD precincts
 # Data provided by John Keefe @ https://johnkeefe.net/nyc-police-precinct-and-census-data)
 print("Reading Keefe 2010 Census 2020 NYPD precinct mapped data")
-census = pd.read_csv("s3://jdi-ccrb/raw/keefe-census-2010-precinct-2020-mapping.csv")
+census = pd.read_csv("s3://psl-ccrb/raw/keefe-census-2010-precinct-2020-mapping.csv")
 census_map = json.loads(S3.Bucket(BUCKET).Object("raw/keefe-census-2010-column-mapping.json").get()["Body"].read().decode("utf-8"))
 census = census.rename(columns=census_map)
 census = census.drop([r for r in census.columns if r.startswith("P00")], axis=1)
@@ -70,21 +70,21 @@ ccrb = ccrb.join(census.set_index("Census_Precinct"), how="left", on="Precinct")
 # Ingest number of NYPD officers per year and merge
 # Data provided by Jacob Kaplan @ https://jacobdkaplan.com/
 print("Reading Kaplan NYPD officers data")
-num_officers = pd.read_csv("s3://jdi-ccrb/raw/kaplan-police.csv")
+num_officers = pd.read_csv("s3://psl-ccrb/raw/kaplan-police.csv")
 num_officers = num_officers[["year", "population", "total_employees_officers", "total_employees_total"]].rename(columns={"year": "Year", "population": "NYC_Pop_Year", "total_employees_officers": "Num_NYPD_Officers_Year", "total_employees_total": "Num_NYPD_Employees_Year"})
 ccrb = pd.merge(ccrb, num_officers, how="left", on="Year")
 
 # Ingest number of arrests per year and merge
 # Data provided by Jacob Kaplan @ https://jacobdkaplan.com/
 print("Reading Kaplan NYC arrests data")
-num_arrests = pd.read_csv("s3://jdi-ccrb/raw/kaplan-arrests.csv")
+num_arrests = pd.read_csv("s3://psl-ccrb/raw/kaplan-arrests.csv")
 num_arrests = num_arrests[["year", "all_arrests_total_tot_arrests"]].rename(columns={"year": "Year", "all_arrests_total_tot_arrests": "Num_Arrests_Year"})
 ccrb = pd.merge(ccrb, num_arrests, how="left", on="Year")
 
 # Ingest number of offenses per year and merge
 # Data provided by Jacob Kaplan @ https://jacobdkaplan.com/
 print("Reading Kaplan NYC offenses data")
-num_offenses = pd.read_csv("s3://jdi-ccrb/raw/kaplan-offenses.csv")
+num_offenses = pd.read_csv("s3://psl-ccrb/raw/kaplan-offenses.csv")
 num_offenses = num_offenses[["year", "actual_all_crimes", "tot_clr_all_crimes"]].rename(columns={"year": "Year", "actual_all_crimes": "Num_Offenses_Year", "tot_clr_all_crimes": "Num_Offenses_Cleared_Year"})
 ccrb = pd.merge(ccrb, num_offenses, how="left", on="Year")
 
@@ -148,8 +148,8 @@ ccrb = pd.merge(ccrb, mo_stops_counts_df, how="left", on=["Year", "Month"])
 ccrb = pd.merge(ccrb, mo_precinct_stops_counts_df, how="left", on=["Year", "Month", "Precinct"])
 
 # Save intermediate CSV to tmp directory of S3 bucket
-print("Saving intermediate data to s3://jdi-ccrb/tmp/")
-ccrb.to_csv("s3://jdi-ccrb/tmp/ccrb-minus-crime-complaints.csv", index=False)
+print("Saving intermediate data to s3://psl-ccrb/tmp/")
+ccrb.to_csv("s3://psl-ccrb/tmp/ccrb-minus-crime-complaints.csv", index=False)
 
 # Ingest NYPD crime complaints file
 # Data provided by NYC Open Data @ https://data.cityofnewyork.us/Public-Safety/NYPD-Complaint-Data-Historic/qgea-i56i
@@ -158,13 +158,13 @@ ccrb.to_csv("s3://jdi-ccrb/tmp/ccrb-minus-crime-complaints.csv", index=False)
 complaints = pd.DataFrame()
 chunk_rows = 2000000
 i = 1
-for chunk in pd.read_csv("s3://jdi-ccrb/raw/nypd-crime-complaints.csv", chunksize=chunk_rows):
+for chunk in pd.read_csv("s3://psl-ccrb/raw/nypd-crime-complaints.csv", chunksize=chunk_rows):
     print(f"Reading NYC Open Data crime complaint data rows {(i-1)*chunk_rows+1}-{i*chunk_rows}")
     complaints = pd.concat([complaints, chunk])
     i += 1
     
 # Read in offense type mapping JSON and mere with crime complaints
-offense_types = pd.read_csv("s3://jdi-ccrb/raw/nypd-crime-complaints-type-mapping.csv")
+offense_types = pd.read_csv("s3://psl-ccrb/raw/nypd-crime-complaints-type-mapping.csv")
 complaints_df = pd.merge(complaints, offense_types[["OFNS_DESC", "OFNS_TYPE"]], how="left", on="OFNS_DESC")
 complaints_df = complaints_df[complaints_df["OFNS_TYPE"].notnull()]
 
@@ -193,7 +193,7 @@ for c in crime_complaints_monthly.columns:
 crime_complaints = pd.merge(crime_complaints_monthly, crime_complaints_yearly, on=["YEAR"])
 
 # Save intermediate CSV to tmp directory of S3 bucket
-crime_complaints.to_csv("s3://jdi-ccrb/tmp/nypd-crime-complaints-count-by-year-month.csv", index=False)
+crime_complaints.to_csv("s3://psl-ccrb/tmp/nypd-crime-complaints-count-by-year-month.csv", index=False)
 
 # Collect crime complaint counts by precinct-year and precinct-month
 precinct_crime_complaints_yearly = complaints_df.groupby(["YEAR", "ADDR_PCT_CD"])["OFNS_TYPE"].value_counts().unstack().fillna(0.0).reset_index()
@@ -207,7 +207,7 @@ for c in precinct_crime_complaints_monthly.columns:
 precinct_crime_complaints = pd.merge(precinct_crime_complaints_monthly, precinct_crime_complaints_yearly, on=["YEAR", "ADDR_PCT_CD"])
 
 # Save intermediate CSV to tmp directory of S3 bucket
-precinct_crime_complaints.to_csv("s3://jdi-ccrb/tmp/nypd-crime-complaints-count-by-precinct-year-month.csv", index=False)
+precinct_crime_complaints.to_csv("s3://psl-ccrb/tmp/nypd-crime-complaints-count-by-precinct-year-month.csv", index=False)
 
 # Merge crime complaints and finalize
 final = pd.merge(ccrb, crime_complaints, how="left", left_on=["Year", "Month"], right_on=["YEAR", "MONTH"])
@@ -215,8 +215,8 @@ final = pd.merge(final, precinct_crime_complaints, how="left", left_on=["Year", 
 final = final.drop(columns={"YEAR_x", "MONTH_x", "YEAR_y", "MONTH_y", "ADDR_PCT_CD"})
 
 # Save final CSV to out directory of S3 bucket
-print("Saving final data to s3://jdi-ccrb/out/")
-final.to_csv("s3://jdi-ccrb/out/data.csv", index=False)
+print("Saving final data to s3://psl-ccrb/out/")
+final.to_csv("s3://psl-ccrb/out/data.csv", index=False)
 
 # Save final CSV to chunks under GitHub size limit in out directory
 cols = list(final.columns)
