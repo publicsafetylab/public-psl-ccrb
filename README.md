@@ -14,7 +14,7 @@ The <a href="">process.py</a> script reads in the raw NYCLU NYC CCRB data and me
   <li>The NYPD crime complaints dataset from <a href="https://data.cityofnewyork.us/Public-Safety/NYPD-Complaint-Data-Historic/qgea-i56i">NYC Open Data</a></li>
 </ul>
   
-The final data is batched into 6 files in the <a href="https://github.com/publicsafetylab/JDI-CCRB/tree/master/data">data</a> directory (data_chunk_0 thru data_chunk_6).
+The final data is batched into 6 files in the <a href="https://github.com/publicsafetylab/JDI-CCRB/tree/master/data">data</a> directory (data_chunk_0 thru data_chunk_5).
 
 ## Contact Information
 
