@@ -1,9 +1,11 @@
+from itertools import product
 from io import StringIO
 import pandas as pd
 import numpy as np
 import warnings
 import boto3
 import json
+import os
 
 # Note: suppressing warnings optional
 warnings.simplefilter(action="ignore", category=Warning)
@@ -97,60 +99,53 @@ for fn in fns:
         dfs.append(pd.read_csv(StringIO(S3.Bucket(BUCKET).Object(fn).get()["Body"].read().decode("utf-8"))))
     except:
         dfs.append(pd.read_csv(StringIO(S3.Bucket(BUCKET).Object(fn).get()["Body"].read().decode("iso-8859-1"))))
-
+        
 # Function to extract month from some stops CSVs
 def extract_stops_month(s):
-    if type(s)==int:
-        if len(str(s))==7: 
-            return int(str(s)[0])
-        elif len(str(s))==8: 
-            return int(str(s)[0:2])
-    elif type(s)==str:
-        if "-" in s: 
-            return int(s.split("-")[1])
-        
-# Process year, month and precinct fields (fill missing -1), and store counts by year-DataFrame
-dfs_processed = []
-mo_stops_counts_dfs = []
-mo_precinct_stops_counts_dfs = []
-yr_precinct_stops_counts_dfs = []
-for df in dfs:
-    try: 
-        df["pct"] = df["pct"].apply(lambda x: str(x).strip())
-        df["Month"] = df["datestop"].apply(lambda x: extract_stops_month(x))
-        df["year"] = df["year"].apply(lambda x: str(x).strip())
-        df = df[df["year"] != ""]
-        mo_stops_counts_dfs.append(pd.DataFrame(df.groupby(["year", "Month"]).size(), columns=["Stops_Month"]).reset_index().rename(columns={"year": "Year"}))
-        mo_precinct_stops_counts_dfs.append(pd.DataFrame(df.groupby(["pct", "year", "Month"]).size(), columns=["Stops_Precinct_Month"]).reset_index().rename(columns={"pct": "Precinct", "year": "Year"}))
-        yr_precinct_stops_counts_dfs.append(pd.DataFrame(df.groupby(["pct", "year"]).size(), columns=["Stops_Precinct_Year"]).reset_index().rename(columns={"pct": "Precinct", "year": "Year"}))
-    except:
-        df["STOP_LOCATION_PRECINCT"] = df["STOP_LOCATION_PRECINCT"].apply(lambda x: str(x).strip())
-        df["Month"] = pd.to_datetime(df["STOP_FRISK_DATE"]).dt.month.fillna("-1").astype(int)
-        df["YEAR2"] = df["YEAR2"].astype(int)
-        if df["YEAR2"][0] == 2017.0:
-            df["YEAR2"] = 2017
-        df = df[df["YEAR2"] != ""]
-        mo_stops_counts_dfs.append(pd.DataFrame(df.groupby(["YEAR2", "Month"]).size(), columns=["Stops_Month"]).reset_index().rename(columns={"YEAR2": "Year"}))
-        mo_precinct_stops_counts_dfs.append(pd.DataFrame(df.groupby(["STOP_LOCATION_PRECINCT", "YEAR2", "Month"]).size(), columns=["Stops_Precinct_Month"]).reset_index().rename(columns={"STOP_LOCATION_PRECINCT": "Precinct", "YEAR2": "Year"}))
-        yr_precinct_stops_counts_dfs.append(pd.DataFrame(df.groupby(["STOP_LOCATION_PRECINCT", "YEAR2"]).size(), columns=["Stops_Precinct_Year"]).reset_index().rename(columns={"STOP_LOCATION_PRECINCT": "Precinct", "YEAR2": "Year"}))
-    dfs_processed.append(df)
+    s = str(s).strip()
+    if s=="":
+        return -1
+    elif len(s)==7:
+        return int(str(s)[0])
+    elif len(s)==8:
+        return int(str(s)[0:2])
+    elif "-" in s:
+        return int(s.split("-")[1])
+    else:
+        raise ValueError
 
-# Concatenate yearly and monthly stops counts
-yr_stops_counts_df = pd.DataFrame(list(zip(range(2003, 2020), [len(df) for df in dfs_processed])), columns=["Year", "Stops_Year"])
-yr_precinct_stops_counts_df = pd.concat(yr_precinct_stops_counts_dfs).reset_index().drop(columns=["index"])
-yr_precinct_stops_counts_df["Year"] = yr_precinct_stops_counts_df["Year"].astype(int)
-yr_precinct_stops_counts_df["Precinct"] = np.where(yr_precinct_stops_counts_df["Precinct"].isin([" ", "#NULL!", "208760", "999", ""]), "999", yr_precinct_stops_counts_df["Precinct"])
-mo_stops_counts_df = pd.concat(mo_stops_counts_dfs).reset_index().drop(columns=["index"])
-mo_stops_counts_df[["Year", "Month"]]= mo_stops_counts_df[["Year", "Month"]].astype(int)
+# Function to extract precinct from stops CSVs
+def extract_stops_precinct(s):
+    s = str(s).strip()
+    if not s.isdigit():
+        return "-1"
+    elif s==999:
+        return "-1"
+    else:
+        return s
+    
+# Process NYPD stop-and-frisk data to collect counts by year, month, precinct-year and precinct-month
+mo_precinct_stops_counts_dfs = []
+for df in dfs:
+    try:
+        df = df.rename(columns={"year": "Year", "pct": "Precinct"})
+        df["Month"] = df["datestop"].apply(lambda d: extract_stops_month(d))
+    except:
+        df = df.rename(columns={"YEAR2": "Year", "STOP_LOCATION_PRECINCT": "Precinct"})
+        df["Month"] = pd.to_datetime(df["STOP_FRISK_DATE"]).dt.month.fillna("-1").astype(int)
+    df["Year"] = int(df["Year"][0])
+    df["Precinct"] = df["Precinct"].apply(lambda p: extract_stops_precinct(p))
+    mo_precinct_stops_counts_dfs.append(pd.DataFrame(df.groupby(["Year", "Month", "Precinct"]).size(), columns=["Stops_Precinct_Month"]).reset_index())
 mo_precinct_stops_counts_df = pd.concat(mo_precinct_stops_counts_dfs).reset_index().drop(columns=["index"])
-mo_precinct_stops_counts_df[["Year", "Month"]] = mo_precinct_stops_counts_df[["Year", "Month"]].astype(int)
-mo_precinct_stops_counts_df["Precinct"] = np.where(mo_precinct_stops_counts_df["Precinct"].isin([" ", "#NULL!", "208760", "999", ""]), "-1", mo_precinct_stops_counts_df["Precinct"])
+yr_precinct_stops_counts_df = mo_precinct_stops_counts_df.groupby(["Year", "Precinct"])["Stops_Precinct_Month"].sum().reset_index().rename(columns={"Stops_Precinct_Month": "Stops_Precinct_Year"})
+mo_stops_counts_df = mo_precinct_stops_counts_df.groupby(["Year", "Month"])["Stops_Precinct_Month"].sum().reset_index().rename(columns={"Stops_Precinct_Month": "Stops_Month"})
+yr_stops_counts_df = mo_stops_counts_df.groupby(["Year"])["Stops_Month"].sum().reset_index().rename(columns={"Stops_Month": "Stops_Year"})
 
 # Merge stops counts by year, month, precinct-year and precinct-month
 ccrb = pd.merge(ccrb, yr_stops_counts_df, how="left", on="Year")
 ccrb = pd.merge(ccrb, yr_precinct_stops_counts_df, how="left", on=["Precinct", "Year"])
 ccrb = pd.merge(ccrb, mo_stops_counts_df, how="left", on=["Year", "Month"])
-ccrb = pd.merge(ccrb, mo_precinct_stops_counts_df, how="left", on=["Precinct", "Year", "Month"])
+ccrb = pd.merge(ccrb, mo_precinct_stops_counts_df, how="left", on=["Year", "Month", "Precinct"])
 
 # Save intermediate CSV to tmp directory of S3 bucket
 print("Saving intermediate data to s3://jdi-ccrb/tmp/")
@@ -219,7 +214,23 @@ final = pd.merge(ccrb, crime_complaints, how="left", left_on=["Year", "Month"], 
 final = pd.merge(final, precinct_crime_complaints, how="left", left_on=["Year", "Month", "Precinct"], right_on=["YEAR", "MONTH", "ADDR_PCT_CD"])
 final = final.drop(columns={"YEAR_x", "MONTH_x", "YEAR_y", "MONTH_y", "ADDR_PCT_CD"})
 
-# Save final CSV to out directory of S3 bucket and to local directory of JDI-CCRB GitHub repository
+# Save final CSV to out directory of S3 bucket
+print("Saving final data to s3://jdi-ccrb/out/")
 final.to_csv("s3://jdi-ccrb/out/data.csv", index=False)
-final.to_csv("out/data.csv", index=False)
+
+# Save final CSV to chunks under GitHub size limit in out directory
+cols = list(final.columns)
+final.to_csv("data.csv", index=False)
+if not os.path.isdir("out"):
+    os.system("mkdir out")
+os.system("split -a 1 -l 60000 data.csv out/data_chunk_")
+os.system("for file in out/data_chunk_*; do mv ${file} ${file}.csv; done")
+os.remove("data.csv")
+for i, f in enumerate(sorted(os.listdir("out"))):
+    if i==0:
+        tmp = pd.read_csv(f"out/{f}")
+    else:
+        tmp = pd.read_csv(f"out/{f}", names=cols)
+    os.remove(f"out/{f}")
+    tmp.to_csv(f"out/{'_'.join(f.split('_')[0:2])}_{i}.csv", index=False)
 print("\n" + "*"*20 + "\n")
