@@ -1,0 +1,6 @@
+# Command to ignore filetypes (e.g., Jupyter Notebook) specified below
+
+*.DS_Store
+*.ipynb
+**/__pycache__
+.ipynb_checkpoints/
