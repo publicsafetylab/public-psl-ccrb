@@ -163,7 +163,6 @@ def annual_complaints(dfa, start, stop, figno, ign_pcts=[]):
     fig.update_yaxes(title_text="<span style='font-size: 12px;'>Number of Misconduct Complaints</span>", secondary_y=False)
     fig.update_yaxes(title_text="<span style='font-size: 12px;'>Number of Substantiated Complaints</span>", secondary_y=True)
     fig.update(layout_showlegend=False)
-    fig.write_html(f"viz/fig-{figno}.html")
     fig.show()
     
     return g
@@ -211,7 +210,6 @@ def annual_complaints_officers_crimes(dfa, start, stop, figno, ign_pcts=[]):
     fig.update_yaxes(title_text="<span style='font-size: 12px;'>Sworn NYPD Officers</span>", row=2, col=1)
     fig.update_yaxes(title_text="<span style='font-size: 12px;'>Reported Crimes</span>", row=2, col=2)
     fig.update(layout_showlegend=False)
-    fig.write_html(f"viz/fig-{figno}.html")
     fig.show()
     
     return g
@@ -237,7 +235,6 @@ def annual_complaints_vs_officers_reg(dfa, start, stop, figno, ign_pcts=[]):
             'x':0.5,
             'xanchor': 'center',
             'yanchor': 'top'})
-    fig.write_html(f"viz/fig-{figno}.html")
     fig.show()
     
     results = px.get_trendline_results(fig)
@@ -265,7 +262,6 @@ def annual_subst_complaints_vs_officers_reg(dfa, start, stop, figno, ign_pcts=[]
             'x':0.5,
             'xanchor': 'center',
             'yanchor': 'top'})
-    fig.write_html(f"viz/fig-{figno}.html")
     fig.show()
     
     results = px.get_trendline_results(fig)
@@ -287,7 +283,6 @@ def annual_complaints_vs_reported_crime_reg(df, start, stop, figno, ign_pcts=[])
             'x':0.5,
             'xanchor': 'center',
             'yanchor': 'top'})
-    fig.write_html(f"viz/fig-{figno}.html")
     fig.show()
     
     results = px.get_trendline_results(fig)
@@ -311,7 +306,6 @@ def annual_subst_complaints_vs_reported_crime_reg(df, start, stop, figno, ign_pc
             'x':0.5,
             'xanchor': 'center',
             'yanchor': 'top'})
-    fig.write_html(f"viz/fig-{figno}.html")
     fig.show()
     
     results = px.get_trendline_results(fig)
@@ -340,7 +334,6 @@ def annual_complaints_vs_prop_demo_reg(df, start, stop, figno, demo, ign_pcts=[]
             'x':0.5,
             'xanchor': 'center',
             'yanchor': 'top'})
-    fig.write_html(f"viz/fig-{figno}.html")
     fig.show()
     
     results = px.get_trendline_results(fig)
@@ -367,7 +360,6 @@ def annual_subst_complaints_vs_prop_demo_reg(df, start, stop, figno, demo, ign_p
             'x':0.5,
             'xanchor': 'center',
             'yanchor': 'top'})
-    fig.write_html(f"viz/fig-{figno}.html")
     fig.show()
     
     results = px.get_trendline_results(fig)
@@ -392,7 +384,6 @@ def annual_complaints_vs_complaints_per_officer_reg(df, start, stop, figno, ign_
             'x':0.5,
             'xanchor': 'center',
             'yanchor': 'top'})
-    fig.write_html(f"viz/fig-{figno}.html")
     fig.show()
     
     results = px.get_trendline_results(fig)
@@ -417,7 +408,6 @@ def annual_subst_complaints_vs_complaints_per_officer_reg(df, start, stop, figno
             'x':0.5,
             'xanchor': 'center',
             'yanchor': 'top'})
-    fig.write_html(f"viz/fig-{figno}.html")
     fig.show()
     
     results = px.get_trendline_results(fig)
@@ -441,7 +431,6 @@ def annual_complaints_per_officer_vs_prop_demo_reg(df, start, stop, figno, demo,
             'x':0.5,
             'xanchor': 'center',
             'yanchor': 'top'})
-    fig.write_html(f"viz/fig-{figno}.html")
     fig.show()
     
     results = px.get_trendline_results(fig)
@@ -465,7 +454,6 @@ def annual_subst_complaints_per_officer_vs_prop_demo_reg(df, start, stop, figno,
             'x':0.5,
             'xanchor': 'center',
             'yanchor': 'top'})
-    fig.write_html(f"viz/fig-{figno}.html")
     fig.show()
     
     results = px.get_trendline_results(fig)
