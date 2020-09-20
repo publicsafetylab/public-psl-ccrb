@@ -22,7 +22,7 @@ if not os.path.isdir("viz"):
 # Connect to public AWS S3 bucket
 # Hosted by NYU's Public Safety Lab @ https://psl-ccrb.s3.amazonaws.com/
 S3 = boto3.resource("s3")
-BUCKET = "jdi-ccrb"
+BUCKET = "psl-ccrb"
 print(f"Connecting to NYU Public Safety Lab AWS S3 bucket {BUCKET}")
 conn = S3.Bucket(BUCKET)
 
