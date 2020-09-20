@@ -20,7 +20,7 @@ The <a href="https://github.com/publicsafetylab/PSL-CCRB/blob/master/process.py"
   
 The final data is batched into 6 files in the <a href="https://github.com/publicsafetylab/PSL-CCRB/tree/master/data">data</a> directory (data_chunk_0 thru data_chunk_5).
 
-The <a href="https://github.com/publicsafetylab/PSL-CCRB/blob/master/visualize.py">visualize.py</a> script reads in the processed CCRB data, flattens per precinct-year and per precinct count means for various features, and creates visualizations corresponding to the figures in the NYPD Officer Misconduct Analysis report. All visualizations are accessable via our public S3 bucket with URLs following the pattern "https://psl-ccrb.s3.amazonaws.com/viz/fig-{<i>figure number</i>}".
+The <a href="https://github.com/publicsafetylab/PSL-CCRB/blob/master/visualize.py">visualize.py</a> script reads in the processed CCRB data, flattens per precinct-year and per precinct count means for various features, and creates visualizations corresponding to the figures in the NYPD Officer Misconduct Analysis report. All visualizations are accessable via our public S3 bucket with URLs following the sample pattern "https://psl-ccrb.s3.amazonaws.com/viz/fig-1".
 
 ## Contact Information
 
