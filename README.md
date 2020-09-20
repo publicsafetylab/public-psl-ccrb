@@ -20,6 +20,8 @@ The <a href="">process.py</a> script reads in the raw CCRB data and merges the f
   
 The final data is batched into 6 files in the <a href="https://github.com/publicsafetylab/PSL-CCRB/tree/master/data">data</a> directory (data_chunk_0 thru data_chunk_5).
 
+The <a href="visualize.py>visualize.py</a> script reads in the processed CCRB data, flattens per precinct-year and per precinct count means for various features, and creates visualizations corresponding to the figures in the NYPD Officer Misconduct Analysis report.
+
 ## Contact Information
 
 Please contact Public Safety Lab Director Anna Harvey or Lead Data Scientist Orion Taylor (<a href="https://publicsafetylab.org/who-we-are"><b>WHO WE ARE</b></a>) with questions, comments and feedback.
