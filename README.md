@@ -8,7 +8,7 @@ On August 20, 2020, the New York Civil Liberties Union released a <a href="https
 This repository contains the data and code used in the Public Safety Lab's analyis of these misconduct data. 
 
 ## Repository Structure
-Note: Many of the raw and temporary files referenced are stored in a public S3 bucket (e.g., the complete output data is stored at <a href='https://psl-ccrb.s3.amazonaws.com/out/data.csv'>https://psl-ccrb.s3.amazonaws.com/out/data.csv</a>).
+Note: Many of the raw and temporary files referenced are stored in a public S3 bucket (e.g., the complete output data is stored at <a href="https://psl-ccrb.s3.amazonaws.com/out/data.csv">https://psl-ccrb.s3.amazonaws.com/out/data.csv</a>).
 
 The <a href="https://github.com/publicsafetylab/PSL-CCRB/blob/master/process.py">process.py</a> script reads in the raw CCRB data and merges the following additional data sources:
 <ul>
@@ -20,7 +20,7 @@ The <a href="https://github.com/publicsafetylab/PSL-CCRB/blob/master/process.py"
   
 The final data is batched into 6 files in the <a href="https://github.com/publicsafetylab/PSL-CCRB/tree/master/data">data</a> directory (data_chunk_0 thru data_chunk_5).
 
-The <a href="https://github.com/publicsafetylab/PSL-CCRB/blob/master/visualize.py">visualize.py</a> script reads in the processed CCRB data, flattens per precinct-year and per precinct count means for various features, and creates visualizations corresponding to the figures in the NYPD Officer Misconduct Analysis report.
+The <a href="https://github.com/publicsafetylab/PSL-CCRB/blob/master/visualize.py">visualize.py</a> script reads in the processed CCRB data, flattens per precinct-year and per precinct count means for various features, and creates visualizations corresponding to the figures in the NYPD Officer Misconduct Analysis report. All visualizations are accessable via our public S3 bucket with URLs following the pattern "https://psl-ccrb.s3.amazonaws.com/viz/fig-{<i>figure number</i>}".
 
 ## Contact Information
 
