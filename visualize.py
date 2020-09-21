@@ -11,10 +11,6 @@ import boto3
 import json
 import os
 
-# Note: suppressing warnings optional
-warnings.simplefilter(action="ignore", category=Warning)
-print("\n" + "*"*20 + "\n")
-
 # Check if viz directory exists
 if not os.path.isdir("viz"):
     os.mkdir("viz")
