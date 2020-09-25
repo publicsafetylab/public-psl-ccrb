@@ -46,8 +46,8 @@ nh_black_columns = [c for c in census.columns if c.startswith("NH_") and "B" in 
 nh_asian_columns = [c for c in census.columns if c.startswith("NH_") and "A" in c and "B" not in c]
 for r in census_records:
     r["Black"] = sum([r[c] for c in black_columns])
-    r["NH_Black"] = sum([r[c] for c in nh_black_columns])  # intermediate
-    r["H_Black"] = r["Black"] - r["NH_Black"]  # intermediate
+    r["NH_Black"] = sum([r[c] for c in nh_black_columns]) # intermediate
+    r["H_Black"] = r["Black"] - r["NH_Black"] # intermediate
     r["Hispanics"] = r["Hispanics"] - r["H_Black"]
     r["NH_Asian"] = sum([r[c] for c in nh_asian_columns])
     r["NH_White"] = r["NH_W"]
@@ -209,10 +209,37 @@ precinct_crime_complaints = pd.merge(precinct_crime_complaints_monthly, precinct
 # Save intermediate CSV to tmp directory of S3 bucket
 precinct_crime_complaints.to_csv("s3://psl-ccrb/tmp/nypd-crime-complaints-count-by-precinct-year-month.csv", index=False)
 
-# Merge crime complaints and finalize
-final = pd.merge(ccrb, crime_complaints, how="left", left_on=["Year", "Month"], right_on=["YEAR", "MONTH"])
-final = pd.merge(final, precinct_crime_complaints, how="left", left_on=["Year", "Month", "Precinct"], right_on=["YEAR", "MONTH", "ADDR_PCT_CD"])
-final = final.drop(columns={"YEAR_x", "MONTH_x", "YEAR_y", "MONTH_y", "ADDR_PCT_CD"})
+# Merge crime complaints
+ccrb = pd.merge(ccrb, crime_complaints, how="left", left_on=["Year", "Month"], right_on=["YEAR", "MONTH"])
+ccrb = pd.merge(ccrb, precinct_crime_complaints, how="left", left_on=["Year", "Month", "Precinct"], right_on=["YEAR", "MONTH", "ADDR_PCT_CD"])
+ccrb = ccrb.drop(columns={"YEAR_x", "MONTH_x", "YEAR_y", "MONTH_y", "ADDR_PCT_CD"})
+
+# Ingest NYPD arrests file
+# Data provided by NYC Open Data @ https://data.cityofnewyork.us/Public-Safety/NYPD-Arrests-Data-Historic-/8h9b-rp9u
+# Note: chunk_rows optional, specifies chunksize
+# Note: DtypeWarning can be suppressed by specifying column data types
+arrests = pd.DataFrame()
+chunk_rows = 2000000
+i = 1
+for chunk in pd.read_csv("s3://psl-ccrb/raw/nypd-arrests.csv", chunksize=chunk_rows):
+    print(f"Reading NYC Open Data arrest data rows {(i-1)*chunk_rows+1}-{i*chunk_rows}")
+    arrests = pd.concat([arrests, chunk])
+    i += 1
+
+# Process arrests data
+arrests = arrests[arrests["ARREST_PRECINCT"] != 27]
+arrests["Year"] = pd.to_datetime(arrests["ARREST_DATE"]).dt.year.fillna("-1").astype(int)
+arrests["Precinct"] = arrests["ARREST_PRECINCT"].astype(str)
+arrests_counts = arrests.groupby(["Precinct", "Year"])["ARREST_KEY"].count().reset_index().rename(columns={"ARREST_KEY": "Arrests_Precinct_Year"})
+pct_121 = arrests_counts[(arrests_counts["Precinct"] == "121") & (arrests_counts["Year"] == 2013)]
+arrests_counts = arrests_counts[~arrests_counts.isin(pct_121)]
+arrests_counts = arrests_counts[arrests_counts["Year"].notna()]
+
+# Save intermediate CSV to tmp directory of S3 bucket
+arrests_counts.to_csv("s3://psl-ccrb/tmp/nypd-arrests-counts-by-precinct-year.csv", index=False)
+
+# Merge arrests data and finalize
+final = pd.merge(ccrb, arrests_counts, how="left", on=["Year", "Precinct"])
 
 # Save final CSV to out directory of S3 bucket
 print("Saving final data to s3://psl-ccrb/out/")
