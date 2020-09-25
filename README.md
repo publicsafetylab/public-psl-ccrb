@@ -16,6 +16,7 @@ The <a href="https://github.com/publicsafetylab/PSL-CCRB/blob/master/process.py"
   <li>Annual counts of the numbers of NYPD employees, officers, arrests, offenses, and cleared offenses, compiled by <a href="https://jacobdkaplan.com">Jacob Kaplan</a></li>
   <li>The NYPD stop-and-frisk <a href="https://www1.nyc.gov/site/nypd/stats/reports-analysis/stopfrisk.page">dataset</a></li>
   <li>The NYPD crime complaints dataset from <a href="https://data.cityofnewyork.us/Public-Safety/NYPD-Complaint-Data-Historic/qgea-i56i">NYC Open Data</a></li>
+  <li>The NYPD arrests dataset from <a href="https://data.cityofnewyork.us/City-Government/Citywide-Payroll-Data-Fiscal-Year-/k397-673e">NYC Open Data</a></li>
 </ul>
   
 The final data is batched into 6 files in the <a href="https://github.com/publicsafetylab/PSL-CCRB/tree/master/out">out</a> directory (data_chunk_0 thru data_chunk_5).
