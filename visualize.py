@@ -66,6 +66,10 @@ def compile_precincts(dfa):
     td11_2017_crimes = {"Year": 2017, "Precinct": "TD11", "Crime Reports": 897.0}
     cg = cg.append(td11_2017_crimes, ignore_index=True)
     
+    # collect arrests per precinct-year and per-precinct
+    ayg = dfa.drop_duplicates(["Precinct", "Year", "Arrests_Precinct_Year"])[["Precinct", "Year", "Arrests_Precinct_Year"]]
+    apg = ayg.groupby("Precinct")["Arrests_Precinct_Year"].mean().reset_index().rename(columns={"Arrests_Precinct_Year": "Annual_Mean_Arrests"})
+
     # for relevant demographics, collect per-precinct proportions
     demos = ["Black", "Non-Hispanic Asian", "Non-Hispanic White"]
     demo_dfs = []
@@ -93,6 +97,7 @@ def compile_precincts(dfa):
     pyg = pd.merge(pyg, pyg.groupby("Precinct")["Crime Reports"].mean().reset_index().rename(columns={"Crime Reports": "Annual_Mean_Crime_Reports"}), on="Precinct")
     pyg = pd.merge(pyg, pyg.groupby("Precinct")["Complaints"].mean().reset_index().rename(columns={"Complaints": "Annual_Mean_Complaints"}), on="Precinct")
     pyg = pd.merge(pyg, pyg.groupby("Precinct")["Substantiated"].mean().reset_index().rename(columns={"Substantiated": "Annual_Mean_Substantiated"}), on="Precinct")
+    pyg = pd.merge(pyg, ayg, how="left", on=["Year", "Precinct"])
     
     # save precinct-year flat file to CSV on S3 and in out directory
     pyg.to_csv("s3://psl-ccrb/out/data-flat-by-precinct-year.csv", index=False)
@@ -102,12 +107,13 @@ def compile_precincts(dfa):
     og = dfa.groupby("Precinct")["Unique Id"].nunique().reset_index().rename(columns={"Unique Id": "Officers"})
 
     # group by precinct and collect complaints/substantiated per officer
-    pg = pyg.drop(["Year", "Crime Reports", "Complaints", "Substantiated"], axis=1).drop_duplicates().sort_values(by="Precinct")
+    pg = pyg.drop(["Year", "Crime Reports", "Complaints", "Substantiated", "Arrests_Precinct_Year"], axis=1).drop_duplicates().sort_values(by="Precinct")
     pg = pd.merge(pg, pyg.groupby("Precinct")["Complaints"].sum().reset_index(), on="Precinct")
     pg = pd.merge(pg, pyg.groupby("Precinct")["Substantiated"].sum().reset_index(), on="Precinct")
     pg = pd.merge(pg, og, how="left", on="Precinct")
     pg["Mean_Complaints_per_Officer"] = pg["Complaints"]/pg["Officers"]
     pg["Mean_Substantiated_per_Officer"] = pg["Substantiated"]/pg["Officers"]
+    pg = pd.merge(pg, apg, how="left", on=["Precinct"])
     
     # save precinct flat file to CSV on S3 and in out directory
     pg.to_csv("s3://psl-ccrb/out/data-flat-by-precinct.csv", index=False)
