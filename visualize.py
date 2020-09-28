@@ -70,6 +70,10 @@ def compile_precincts(dfa):
     ayg = dfa.drop_duplicates(["Precinct", "Year", "Arrests_Precinct_Year"])[["Precinct", "Year", "Arrests_Precinct_Year"]]
     apg = ayg.groupby("Precinct")["Arrests_Precinct_Year"].mean().reset_index().rename(columns={"Arrests_Precinct_Year": "Annual_Mean_Arrests"})
 
+    # collect stops per-precinct-year and per-precinct
+    syg = dfa.drop_duplicates(["Precinct", "Year", "Stops_Precinct_Year"])[["Precinct", "Year", "Stops_Precinct_Year"]].sort_values(by=["Precinct", "Year"])
+    spg = syg.groupby("Precinct")["Stops_Precinct_Year"].mean().reset_index().rename(columns={"Stops_Precinct_Year": "Annual_Mean_Stops"})
+    
     # for relevant demographics, collect per-precinct proportions
     demos = ["Black", "Non-Hispanic Asian", "Non-Hispanic White"]
     demo_dfs = []
@@ -98,6 +102,7 @@ def compile_precincts(dfa):
     pyg = pd.merge(pyg, pyg.groupby("Precinct")["Complaints"].mean().reset_index().rename(columns={"Complaints": "Annual_Mean_Complaints"}), on="Precinct")
     pyg = pd.merge(pyg, pyg.groupby("Precinct")["Substantiated"].mean().reset_index().rename(columns={"Substantiated": "Annual_Mean_Substantiated"}), on="Precinct")
     pyg = pd.merge(pyg, ayg, how="left", on=["Year", "Precinct"])
+    pyg = pd.merge(pyg, syg, how="left", on=["Year", "Precinct"])
     
     # save precinct-year flat file to CSV on S3 and in out directory
     pyg.to_csv("s3://psl-ccrb/out/data-flat-by-precinct-year.csv", index=False)
@@ -107,13 +112,14 @@ def compile_precincts(dfa):
     og = dfa.groupby("Precinct")["Unique Id"].nunique().reset_index().rename(columns={"Unique Id": "Officers"})
 
     # group by precinct and collect complaints/substantiated per officer
-    pg = pyg.drop(["Year", "Crime Reports", "Complaints", "Substantiated", "Arrests_Precinct_Year"], axis=1).drop_duplicates().sort_values(by="Precinct")
+    pg = pyg.drop(["Year", "Crime Reports", "Complaints", "Substantiated", "Arrests_Precinct_Year", "Stops_Precinct_Year"], axis=1).drop_duplicates().sort_values(by="Precinct")
     pg = pd.merge(pg, pyg.groupby("Precinct")["Complaints"].sum().reset_index(), on="Precinct")
     pg = pd.merge(pg, pyg.groupby("Precinct")["Substantiated"].sum().reset_index(), on="Precinct")
     pg = pd.merge(pg, og, how="left", on="Precinct")
     pg["Mean_Complaints_per_Officer"] = pg["Complaints"]/pg["Officers"]
     pg["Mean_Substantiated_per_Officer"] = pg["Substantiated"]/pg["Officers"]
-    pg = pd.merge(pg, apg, how="left", on=["Precinct"])
+    pg = pd.merge(pg, apg, how="left", on="Precinct")
+    pg = pd.merge(pg, spg, how="left", on="Precinct")
     
     # save precinct flat file to CSV on S3 and in out directory
     pg.to_csv("s3://psl-ccrb/out/data-flat-by-precinct.csv", index=False)
@@ -165,8 +171,9 @@ def annual_complaints(dfa, start, stop, figno, ign_pcts=[]):
     fig.update_yaxes(title_text="<span style='font-size: 12px;'>Number of Misconduct Complaints</span>", secondary_y=False)
     fig.update_yaxes(title_text="<span style='font-size: 12px;'>Number of Substantiated Complaints</span>", secondary_y=True)
     fig.update(layout_showlegend=False)
+    fig.write_html(f"out/fig-{figno}.html")
     fig.show()
-    
+
     return g
 
 # Function to generate Figure 2
@@ -212,8 +219,9 @@ def annual_complaints_officers_crimes(dfa, start, stop, figno, ign_pcts=[]):
     fig.update_yaxes(title_text="<span style='font-size: 12px;'>Sworn NYPD Officers</span>", row=2, col=1)
     fig.update_yaxes(title_text="<span style='font-size: 12px;'>Reported Crimes</span>", row=2, col=2)
     fig.update(layout_showlegend=False)
+    fig.write_html(f"out/fig-{figno}.html")
     fig.show()
-    
+
     return g
 
 # Function to generate Figure 3
@@ -238,7 +246,7 @@ def annual_complaints_vs_officers_reg(dfa, start, stop, figno, ign_pcts=[]):
             'xanchor': 'center',
             'yanchor': 'top'})
     fig.show()
-    
+
     results = px.get_trendline_results(fig)
     return g, results.px_fit_results.iloc[0].summary()
 
@@ -265,7 +273,7 @@ def annual_subst_complaints_vs_officers_reg(dfa, start, stop, figno, ign_pcts=[]
             'xanchor': 'center',
             'yanchor': 'top'})
     fig.show()
-    
+
     results = px.get_trendline_results(fig)
     return g, results.px_fit_results.iloc[0].summary()
 
@@ -288,8 +296,8 @@ def annual_complaints_vs_reported_crime_reg(df, start, stop, figno, ign_pcts=[])
     fig.show()
     
     results = px.get_trendline_results(fig)
-    global b0, b1
-    b0, b1 = results.px_fit_results.iloc[0].params
+    global cb0, cb1
+    cb0, cb1 = results.px_fit_results.iloc[0].params
     return df, results.px_fit_results.iloc[0].summary()
 
 # Function to generate Figure A2
@@ -311,67 +319,94 @@ def annual_subst_complaints_vs_reported_crime_reg(df, start, stop, figno, ign_pc
     fig.show()
     
     results = px.get_trendline_results(fig)
-    global b0s, b1s
-    b0s, b1s = results.px_fit_results.iloc[0].params
+    global cb0s, cb1s
+    cb0s, cb1s = results.px_fit_results.iloc[0].params
     return df, results.px_fit_results.iloc[0].summary()
 
-# Function to generate Figures 5, A6, A7
-def annual_complaints_vs_prop_demo_reg(df, start, stop, figno, demo, ign_pcts=[]):
-    df = df.copy()
-    df = df[df[f"2010_Percent_{demo}_Residents"].notna()]
-    df["Precinct"] = df["Precinct"].astype(int)
-    df = df.rename(columns={f"2010_Percent_{demo}_Residents": f"2010 Percent {demo} Residents", "Annual_Mean_Complaints": "Mean Annual Misconduct Complaints"})
-    df["Annual_Mean_Complaints_Pred"] = b0 + b1 * df["Annual_Mean_Crime_Reports"]
-    df["Mean Annual 'Excess' Complaints"] = df["Mean Annual Misconduct Complaints"] - df["Annual_Mean_Complaints_Pred"]
+# Function to generate Figure 5
+def annual_stops_vs_reported_crime_reg(df, start, stop, figno, ign_pcts=[]):
+    df = df.rename(columns={"Annual_Mean_Crime_Reports": "Mean Annual Reported Crimes", "Annual_Mean_Stops": "Mean Annual Stops"})
     
-    shapes = seaborn_conf_int(df, f"2010 Percent {demo} Residents", "Mean Annual 'Excess' Complaints") 
-    fig = px.scatter(df, x=df[f"2010 Percent {demo} Residents"], y=df["Mean Annual 'Excess' Complaints"], color=df.Precinct, text=df.Precinct, trendline="ols")
+    shapes = seaborn_conf_int(df, "Mean Annual Reported Crimes", "Mean Annual Stops") 
+    fig = px.scatter(df, x=df["Mean Annual Reported Crimes"], y=df["Mean Annual Stops"], text=df.Precinct, trendline="ols")
     fig.update_traces(textposition='top center', textfont_size=6)
     fig.update_layout(shapes=shapes)
-    fig.update_xaxes(title_text=f"<span style='font-size: 12px;'>Percent {demo} Residents (2010 U.S. Census)</span>")
-    fig.update_yaxes(title_text="<span style='font-size: 12px;'>Mean Annual Number of 'Excess' Misconduct Complaints</span>")
+    fig.update_xaxes(title_text="<span style='font-size: 12px;'>Mean Annual Number of Reported Crimes</span>")
+    fig.update_yaxes(title_text="<span style='font-size: 12px;'>Mean Annual Number of Stops</span>")
     fig.update_layout(
         title={
-            'text': f"<b>Figure {figno.capitalize()}</b>: Per-Precinct Mean Annual 'Excess' Misconduct Complaints vs. Percent {demo} Residents ({start}-{stop})",
+            'text': f"<b>Figure {figno.capitalize()}</b>: Per-Precinct Mean Annual Stops vs. Mean Annual Reported Crimes ({start}-{stop})",
             'x':0.5,
             'xanchor': 'center',
             'yanchor': 'top'})
     fig.show()
     
     results = px.get_trendline_results(fig)
-    return df, results.px_fit_results.iloc[0].summary()
-
-# Function to generate Figures A3, A8, A9
-def annual_subst_complaints_vs_prop_demo_reg(df, start, stop, figno, demo, ign_pcts=[]):
-    df = df.copy()
-    df = df[df[f"2010_Percent_{demo}_Residents"].notna()]
-    df["Precinct"] = df["Precinct"].astype(int)
-    df = df.rename(columns={f"2010_Percent_{demo}_Residents": f"2010 Percent {demo} Residents", "Annual_Mean_Substantiated": "Mean Annual Substantiated Misconduct Complaints"})
-    df["Annual_Mean_Substantiated_Pred"] = b0s + b1s * df["Annual_Mean_Crime_Reports"]
-    df["Mean Annual 'Excess' Substantiated Complaints"] = df["Mean Annual Substantiated Misconduct Complaints"] - df["Annual_Mean_Substantiated_Pred"]
-    
-    shapes = seaborn_conf_int(df, f"2010 Percent {demo} Residents", "Mean Annual 'Excess' Substantiated Complaints") 
-    fig = px.scatter(df, x=df[f"2010 Percent {demo} Residents"], y=df["Mean Annual 'Excess' Substantiated Complaints"], color=df.Precinct, text=df.Precinct, trendline="ols")
-    fig.update_traces(textposition='top center', textfont_size=6)
-    fig.update_layout(shapes=shapes)
-    fig.update_xaxes(title_text=f"<span style='font-size: 12px;'>Percent {demo} Residents (2010 U.S. Census)</span>")
-    fig.update_yaxes(title_text="<span style='font-size: 12px;'>Mean Annual Number of 'Excess' Substantiated Misconduct Complaints</span>")
-    fig.update_layout(
-        title={
-            'text': f"<b>Figure {figno.capitalize()}</b>: Per-Precinct Mean Annual 'Excess' Substantiated Misconduct Complaints vs. Percent {demo} Residents ({start}-{stop})",
-            'x':0.5,
-            'xanchor': 'center',
-            'yanchor': 'top'})
-    fig.show()
-    
-    results = px.get_trendline_results(fig)
+    global sb0, sb1
+    sb0, sb1 = results.px_fit_results.iloc[0].params
     return df, results.px_fit_results.iloc[0].summary()
 
 # Function to generate Figure 6
+def annual_complaints_vs_stops_reg(df, start, stop, figno, ign_pcts=[]):
+    df = df.copy()
+    df = df[df["Annual_Mean_Stops"].notna()]
+    df["Precinct"] = df["Precinct"].astype(int)
+    df = df.rename(columns={"Annual_Mean_Stops": "Mean Annual Stops", "Annual_Mean_Complaints": "Mean Annual Misconduct Complaints"})
+    df["Annual_Mean_Complaints_Pred"] = cb0 + cb1 * df["Annual_Mean_Crime_Reports"]
+    df["Mean Annual 'Excess' Complaints"] = df["Mean Annual Misconduct Complaints"] - df["Annual_Mean_Complaints_Pred"]
+    df["Annual_Mean_Stops_Pred"] = sb0 + sb1 * df["Annual_Mean_Crime_Reports"]
+    df["Mean Annual 'Excess' Stops"] = df["Mean Annual Stops"] - df["Annual_Mean_Stops_Pred"]
+    
+    shapes = seaborn_conf_int(df, "Mean Annual 'Excess' Stops", "Mean Annual 'Excess' Complaints") 
+    fig = px.scatter(df, x=df["Mean Annual 'Excess' Stops"], y=df["Mean Annual 'Excess' Complaints"], color=df.Precinct, text=df.Precinct, trendline="ols")
+    fig.update_traces(textposition='top center', textfont_size=6)
+    fig.update_layout(shapes=shapes)
+    fig.update_xaxes(title_text=f"<span style='font-size: 12px;'>Mean Annual Number of 'Excess' Stops</span>")
+    fig.update_yaxes(title_text="<span style='font-size: 12px;'>Mean Annual Number of 'Excess' Misconduct Complaints</span>")
+    fig.update_layout(
+        title={
+            'text': f"<b>Figure {figno.capitalize()}</b>: Per-Precinct Mean Annual 'Excess' Misconduct Complaints vs. Mean Annual 'Excess' Stops ({start}-{stop})",
+            'x':0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'})
+    fig.show()
+    
+    results = px.get_trendline_results(fig)
+    return df, results.px_fit_results.iloc[0].summary()
+
+# Function to generate Figure A3
+def annual_subst_complaints_vs_stops_reg(df, start, stop, figno, ign_pcts=[]):
+    df = df.copy()
+    df = df[df["Annual_Mean_Stops"].notna()]
+    df["Precinct"] = df["Precinct"].astype(int)
+    df = df.rename(columns={"Annual_Mean_Stops": "Mean Annual Stops", "Annual_Mean_Substantiated": "Mean Annual Substantiated Misconduct Complaints"})
+    df["Annual_Mean_Substantiated_Complaints_Pred"] = cb0s + cb1s * df["Annual_Mean_Crime_Reports"]
+    df["Mean Annual 'Excess' Substantiated Complaints"] = df["Mean Annual Substantiated Misconduct Complaints"] - df["Annual_Mean_Substantiated_Complaints_Pred"]
+    df["Annual_Mean_Stops_Pred"] = sb0 + sb1 * df["Annual_Mean_Crime_Reports"]
+    df["Mean Annual 'Excess' Stops"] = df["Mean Annual Stops"] - df["Annual_Mean_Stops_Pred"]
+    
+    shapes = seaborn_conf_int(df, "Mean Annual 'Excess' Stops", "Mean Annual 'Excess' Substantiated Complaints") 
+    fig = px.scatter(df, x=df["Mean Annual 'Excess' Stops"], y=df["Mean Annual 'Excess' Substantiated Complaints"], color=df.Precinct, text=df.Precinct, trendline="ols")
+    fig.update_traces(textposition='top center', textfont_size=6)
+    fig.update_layout(shapes=shapes)
+    fig.update_xaxes(title_text=f"<span style='font-size: 12px;'>Mean Annual Number of 'Excess' Stops</span>")
+    fig.update_yaxes(title_text="<span style='font-size: 12px;'>Mean Annual Number of 'Excess' Substantiated Misconduct Complaints</span>")
+    fig.update_layout(
+        title={
+            'text': f"<b>Figure {figno.capitalize()}</b>: Per-Precinct Mean Annual 'Excess' Substantiated Misconduct Complaints vs. Mean Annual 'Excess' Stops ({start}-{stop})",
+            'x':0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'})
+    fig.show()
+    
+    results = px.get_trendline_results(fig)
+    return df, results.px_fit_results.iloc[0].summary()
+
+# Function to generate Figure 7
 def annual_complaints_vs_complaints_per_officer_reg(df, start, stop, figno, ign_pcts=[]):
     df = df.copy()
     df = df.rename(columns={f"Mean_Complaints_per_Officer": "Mean Complaints Per Accused Officer", "Annual_Mean_Complaints": "Mean Annual Misconduct Complaints"})
-    df["Annual_Mean_Complaints_Pred"] = b0 + b1 * df["Annual_Mean_Crime_Reports"]
+    df["Annual_Mean_Complaints_Pred"] = cb0 + cb1 * df["Annual_Mean_Crime_Reports"]
     df["Mean Annual 'Excess' Complaints"] = df["Mean Annual Misconduct Complaints"] - df["Annual_Mean_Complaints_Pred"]
     
     shapes = seaborn_conf_int(df, f"Mean Complaints Per Accused Officer", "Mean Annual 'Excess' Complaints") 
@@ -386,6 +421,7 @@ def annual_complaints_vs_complaints_per_officer_reg(df, start, stop, figno, ign_
             'x':0.5,
             'xanchor': 'center',
             'yanchor': 'top'})
+    fig.write_html(f"viz/fig-{figno}.html")
     fig.show()
     
     results = px.get_trendline_results(fig)
@@ -395,7 +431,7 @@ def annual_complaints_vs_complaints_per_officer_reg(df, start, stop, figno, ign_
 def annual_subst_complaints_vs_complaints_per_officer_reg(df, start, stop, figno, ign_pcts=[]):
     df = df.copy()
     df = df.rename(columns={f"Mean_Substantiated_per_Officer": "Mean Substantiated Complaints Per Accused Officer", "Annual_Mean_Substantiated": "Mean Annual Substantiated Misconduct Complaints"})
-    df["Annual_Mean_Substantiated_Pred"] = b0s + b1s * df["Annual_Mean_Crime_Reports"]
+    df["Annual_Mean_Substantiated_Pred"] = cb0s + cb1s * df["Annual_Mean_Crime_Reports"]
     df["Mean Annual 'Excess' Substantiated Complaints"] = df["Mean Annual Substantiated Misconduct Complaints"] - df["Annual_Mean_Substantiated_Pred"]
     
     shapes = seaborn_conf_int(df, f"Mean Substantiated Complaints Per Accused Officer", "Mean Annual 'Excess' Substantiated Complaints") 
@@ -415,7 +451,88 @@ def annual_subst_complaints_vs_complaints_per_officer_reg(df, start, stop, figno
     results = px.get_trendline_results(fig)
     return df, results.px_fit_results.iloc[0].summary()
 
-# Function to generate Figure 7
+# Function to generate Figures 8, A7, A8
+def annual_complaints_vs_prop_demo_reg(df, start, stop, figno, demo, ign_pcts=[]):
+    df = df.copy()
+    df = df[df[f"2010_Percent_{demo}_Residents"].notna()]
+    df["Precinct"] = df["Precinct"].astype(int)
+    df = df.rename(columns={f"2010_Percent_{demo}_Residents": f"2010 Percent {demo} Residents", "Annual_Mean_Complaints": "Mean Annual Misconduct Complaints"})
+    df["Annual_Mean_Complaints_Pred"] = cb0 + cb1 * df["Annual_Mean_Crime_Reports"]
+    df["Mean Annual 'Excess' Complaints"] = df["Mean Annual Misconduct Complaints"] - df["Annual_Mean_Complaints_Pred"]
+    
+    shapes = seaborn_conf_int(df, f"2010 Percent {demo} Residents", "Mean Annual 'Excess' Complaints") 
+    fig = px.scatter(df, x=df[f"2010 Percent {demo} Residents"], y=df["Mean Annual 'Excess' Complaints"], color=df.Precinct, text=df.Precinct, trendline="ols")
+    fig.update_traces(textposition='top center', textfont_size=6)
+    fig.update_layout(shapes=shapes)
+    fig.update_xaxes(title_text=f"<span style='font-size: 12px;'>Percent {demo} Residents (2010 U.S. Census)</span>")
+    fig.update_yaxes(title_text="<span style='font-size: 12px;'>Mean Annual Number of 'Excess' Misconduct Complaints</span>")
+    fig.update_layout(
+        title={
+            'text': f"<b>Figure {figno.capitalize()}</b>: Per-Precinct Mean Annual 'Excess' Misconduct Complaints vs. Percent {demo} Residents ({start}-{stop})",
+            'x':0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'})
+    fig.write_html(f"viz/fig-{figno}.html")
+    fig.show()
+    
+    results = px.get_trendline_results(fig)
+    return df, results.px_fit_results.iloc[0].summary()
+
+# Function to generate Figures A5, A9, A10
+def annual_subst_complaints_vs_prop_demo_reg(df, start, stop, figno, demo, ign_pcts=[]):
+    df = df.copy()
+    df = df[df[f"2010_Percent_{demo}_Residents"].notna()]
+    df["Precinct"] = df["Precinct"].astype(int)
+    df = df.rename(columns={f"2010_Percent_{demo}_Residents": f"2010 Percent {demo} Residents", "Annual_Mean_Substantiated": "Mean Annual Substantiated Misconduct Complaints"})
+    df["Annual_Mean_Substantiated_Pred"] = cb0s + cb1s * df["Annual_Mean_Crime_Reports"]
+    df["Mean Annual 'Excess' Substantiated Complaints"] = df["Mean Annual Substantiated Misconduct Complaints"] - df["Annual_Mean_Substantiated_Pred"]
+    
+    shapes = seaborn_conf_int(df, f"2010 Percent {demo} Residents", "Mean Annual 'Excess' Substantiated Complaints") 
+    fig = px.scatter(df, x=df[f"2010 Percent {demo} Residents"], y=df["Mean Annual 'Excess' Substantiated Complaints"], color=df.Precinct, text=df.Precinct, trendline="ols")
+    fig.update_traces(textposition='top center', textfont_size=6)
+    fig.update_layout(shapes=shapes)
+    fig.update_xaxes(title_text=f"<span style='font-size: 12px;'>Percent {demo} Residents (2010 U.S. Census)</span>")
+    fig.update_yaxes(title_text="<span style='font-size: 12px;'>Mean Annual Number of 'Excess' Substantiated Misconduct Complaints</span>")
+    fig.update_layout(
+        title={
+            'text': f"<b>Figure {figno.capitalize()}</b>: Per-Precinct Mean Annual 'Excess' Substantiated Misconduct Complaints vs. Percent {demo} Residents ({start}-{stop})",
+            'x':0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'})
+    fig.write_html(f"viz/fig-{figno}.html")
+    fig.show()
+    
+    results = px.get_trendline_results(fig)
+    return df, results.px_fit_results.iloc[0].summary()
+
+# Function to generate Figure 9
+def annual_stops_vs_prop_demo_reg(df, start, stop, figno, demo, ign_pcts=[]):
+    df = df.copy()
+    df = df[df["Annual_Mean_Stops"].notna()]
+    df["Precinct"] = df["Precinct"].astype(int)
+    df = df.rename(columns={"Annual_Mean_Stops": "Mean Annual Stops", f"2010_Percent_{demo}_Residents": f"2010 Percent {demo} Residents"})
+    df["Annual_Mean_Stops_Pred"] = sb0 + sb1 * df["Annual_Mean_Crime_Reports"]
+    df["Mean Annual 'Excess' Stops"] = df["Mean Annual Stops"] - df["Annual_Mean_Stops_Pred"]
+    
+    shapes = seaborn_conf_int(df, f"2010 Percent {demo} Residents", "Mean Annual 'Excess' Stops") 
+    fig = px.scatter(df, x=df[f"2010 Percent {demo} Residents"], y=df["Mean Annual 'Excess' Stops"], color=df.Precinct, text=df.Precinct, trendline="ols")
+    fig.update_traces(textposition='top center', textfont_size=6)
+    fig.update_layout(shapes=shapes)
+    fig.update_xaxes(title_text=f"<span style='font-size: 12px;'>Percent {demo} Residents (2010 U.S. Census)</span>")
+    fig.update_yaxes(title_text="<span style='font-size: 12px;'>Mean Annual Number of 'Excess' Stops</span>")
+    fig.update_layout(
+        title={
+            'text': f"<b>Figure {figno.capitalize()}</b>: Per-Precinct Mean Annual 'Excess' Stops vs. Percent {demo} Residents ({start}-{stop})",
+            'x':0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'})
+    fig.write_html(f"viz/fig-{figno}.html")
+    fig.show()
+    
+    results = px.get_trendline_results(fig)
+    return df, results.px_fit_results.iloc[0].summary()
+
+# Function to generate Figure 10
 def annual_complaints_per_officer_vs_prop_demo_reg(df, start, stop, figno, demo, ign_pcts=[]):
     df = df.copy()
     df = df[df[f"2010_Percent_{demo}_Residents"].notna()]
@@ -433,12 +550,13 @@ def annual_complaints_per_officer_vs_prop_demo_reg(df, start, stop, figno, demo,
             'x':0.5,
             'xanchor': 'center',
             'yanchor': 'top'})
+    fig.write_html(f"viz/fig-{figno}.html")
     fig.show()
     
     results = px.get_trendline_results(fig)
     return df, results.px_fit_results.iloc[0].summary()
 
-# Function to generate Figure A5
+# Function to generate Figure A6
 def annual_subst_complaints_per_officer_vs_prop_demo_reg(df, start, stop, figno, demo, ign_pcts=[]):
     df = df.copy()
     df = df[df[f"2010_Percent_{demo}_Residents"].notna()]
@@ -456,6 +574,7 @@ def annual_subst_complaints_per_officer_vs_prop_demo_reg(df, start, stop, figno,
             'x':0.5,
             'xanchor': 'center',
             'yanchor': 'top'})
+    fig.write_html(f"viz/fig-{figno}.html")
     fig.show()
     
     results = px.get_trendline_results(fig)
@@ -479,22 +598,30 @@ annual_complaints_vs_reported_crime_reg(flat, 2006, 2019, "4")
 print("Generating Fig A2")
 annual_subst_complaints_vs_reported_crime_reg(flat, 2006, 2019, "a2")
 print("Generating Fig 5")
-annual_complaints_vs_prop_demo_reg(flat, 2006, 2019, "5", "Black")
-print("Generating Fig A6")
-annual_complaints_vs_prop_demo_reg(flat, 2006, 2019, "a6", "Non-Hispanic White")
-print("Generating Fig A7")
-annual_complaints_vs_prop_demo_reg(flat, 2006, 2019, "a7", "Non-Hispanic Asian")
-print("Generating Figure A3")
-annual_subst_complaints_vs_prop_demo_reg(flat, 2006, 2019, "a3", "Black")
-print("Generating Figure A8")
-annual_subst_complaints_vs_prop_demo_reg(flat, 2006, 2019, "a8", "Non-Hispanic White")
-print("Generating Figure A9")
-annual_subst_complaints_vs_prop_demo_reg(flat, 2006, 2019, "a9", "Non-Hispanic Asian")
-print("Generating Figure 6")
-annual_complaints_vs_complaints_per_officer_reg(flat, 2006, 2019, "6")
+annual_stops_vs_reported_crime_reg(flat, 2006, 2019, "5")
+print("Generating Fig 6")
+annual_complaints_vs_stops_reg(flat, 2006, 2019, "6")
+print("Generating Fig A3")
+annual_subst_complaints_vs_stops_reg(flat, 2006, 2019, "a3")
+print("Generating Figure 7")
+annual_complaints_vs_complaints_per_officer_reg(flat, 2006, 2019, "7")
 print("Generating Figure A4")
 annual_subst_complaints_vs_complaints_per_officer_reg(flat, 2006, 2019, "a4")
-print("Generating Figure 7")
-annual_complaints_per_officer_vs_prop_demo_reg(flat, 2006, 2019, "7", "Black")
+print("Generating Fig 8")
+annual_complaints_vs_prop_demo_reg(flat, 2006, 2019, "8", "Black")
 print("Generating Figure A5")
-annual_subst_complaints_per_officer_vs_prop_demo_reg(flat, 2006, 2019, "a5", "Black")
+annual_subst_complaints_vs_prop_demo_reg(flat, 2006, 2019, "a5", "Black")
+print("Generating Fig 9")
+annual_stops_vs_prop_demo_reg(flat, 2006, 2019, "9", "Black")
+print("Generating Figure 10")
+annual_complaints_per_officer_vs_prop_demo_reg(flat, 2006, 2019, "10", "Black")
+print("Generating Figure A6")
+annual_subst_complaints_per_officer_vs_prop_demo_reg(flat, 2006, 2019, "a6", "Black")
+print("Generating Fig A7")
+annual_complaints_vs_prop_demo_reg(flat, 2006, 2019, "a7", "Non-Hispanic White")
+print("Generating Fig A8")
+annual_complaints_vs_prop_demo_reg(flat, 2006, 2019, "a8", "Non-Hispanic Asian")
+print("Generating Figure A9")
+annual_subst_complaints_vs_prop_demo_reg(flat, 2006, 2019, "a9", "Non-Hispanic White")
+print("Generating Figure A10")
+annual_subst_complaints_vs_prop_demo_reg(flat, 2006, 2019, "a10", "Non-Hispanic Asian")
